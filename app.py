@@ -1,79 +1,82 @@
 import streamlit as st
-import numpy as np
 import joblib
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from PIL import Image
 
-# Cargar modelo y scaler
-model = joblib.load("modelGB.joblib")
+# Cargar modelos
 scaler = joblib.load("scaler.joblib")
+label_encoder = joblib.load("labelencoder.joblib")
+model = joblib.load("modelRF.joblib")
 
-# Título y subtítulo
-st.title("🧬 Modelo Predictivo Diabetes")
-st.subheader("Autores: Laura Sofía Velandia y María Paula Corredor")
+# Definir valores por defecto
+feature_means = {
+    "Temperature": 29.977300,
+    "Humidity": 70.036240,
+    "PM10": 28.215900,
+    "NO2": 26.364280,
+    "SO2": 9.911630,
+    "CO": 1.498345,
+    "Proximity_to_Industrial_Areas": 8.419160,
+    "Population_Density": 497.406700,
+}
+
+# Definir colores y emojis por categoría
+category_styles = {
+    "Moderate": ("#FFD700", "😐"),
+    "Good": ("#32CD32", "😊"),
+    "Hazardous": ("#8B0000", "☠️"),
+    "Poor": ("#FF4500", "😷"),
+}
+
+# UI de la aplicación
+st.title("Modelo Predictivo de la Calidad del Aire")
+st.subheader("Autores: Johan Rodriguez y Stefania Reyes")
 
 # Imagen
-image = Image.open("diabetes.jpg")
+image = Image.open("contaminacion.jpg")
 st.image(image, use_container_width=True)
 
 # Introducción
-st.markdown("""
-Esta aplicación permite predecir si una persona podría tener riesgo de diabetes, utilizando un modelo entrenado con Gradient Boosting.
+txt = """
+Esta aplicación permite predecir la calidad del aire con base en distintos parámetros ambientales. 
 
-Para usar la herramienta, introduce los valores correspondientes en cada campo numérico y presiona el botón **Predecir** para obtener el resultado.
-""")
+**¿Cómo usarla?**
+- Ajusta los valores de cada variable usando los deslizadores.
+- Presiona el botón de predicción para obtener el resultado.
+"""
+st.markdown(txt)
 
-# Valores por defecto (media de la tabla)
-default_values = {
-    "Pregnancies": 3.84,
-    "Glucose": 121.14,
-    "BloodPressure": 70.68,
-    "SkinThickness": 20.51,
-    "Insulin": 73.65,
-    "BMI": 32.13,
-    "DiabetesPedigreeFunction": 0.46,
-    "Age": 33.20
-}
-
-# Entradas del usuario
-st.markdown("### Ingrese los valores del paciente:")
-pregnancies = st.number_input("Número de embarazos", value=default_values["Pregnancies"])
-glucose = st.number_input("Nivel de glucosa", value=default_values["Glucose"])
-bp = st.number_input("Presión arterial", value=default_values["BloodPressure"])
-skin = st.number_input("Espesor de la piel", value=default_values["SkinThickness"])
-insulin = st.number_input("Nivel de insulina", value=default_values["Insulin"])
-bmi = st.number_input("Índice de masa corporal (BMI)", value=default_values["BMI"])
-dpf = st.number_input("Función de herencia de diabetes", value=default_values["DiabetesPedigreeFunction"])
-age = st.number_input("Edad", value=default_values["Age"])
+# Entrada de variables (cambiado a number_input)
+st.sidebar.header("Ingrese los valores de las variables")
+input_data = []
+for feature, mean_value in feature_means.items():
+    val = st.sidebar.number_input(
+        label=feature,
+        min_value=0.0,
+        value=mean_value,
+        step=0.01,
+        format="%.4f"
+    )
+    input_data.append(val)
 
 # Botón de predicción
-if st.button("Predecir"):
-    user_data = np.array([[pregnancies, glucose, bp, skin, insulin, bmi, dpf, age]])
-    user_scaled = scaler.transform(user_data)
-    prediction = model.predict(user_scaled)[0]
+if st.button("Predecir Calidad del Aire"):
+    # Transformar datos
+    input_array = np.array(input_data).reshape(1, -1)
+    input_scaled = scaler.transform(input_array)
+    
+    # Predicción
+    prediction = model.predict(input_scaled)
+    category = label_encoder.inverse_transform(prediction)[0]
+    
+    # Mostrar resultado con estilo
+    color, emoji = category_styles.get(category, ("#FFFFFF", "❓"))
+    st.markdown(f'<div style="background-color:{color}; padding:10px; border-radius:10px; text-align:center;">' \
+                f'<h2>{category} {emoji}</h2></div>', unsafe_allow_html=True)
 
-    if prediction == 1:
-        st.markdown("""
-        <div style='background-color:#ff4c4c; padding: 20px; border-radius: 10px; color: white;'>
-            <h3>🔴 Riesgo de Diabetes</h3>
-            <p>Se recomienda consultar a un profesional de salud para un diagnóstico más preciso.</p>
-            <p><strong>Recomendaciones:</strong></p>
-            <ul>
-                <li>Mantener una dieta equilibrada baja en azúcares y grasas saturadas.</li>
-                <li>Realizar actividad física regular (al menos 30 minutos al día).</li>
-                <li>Controlar el peso corporal y evitar el sobrepeso.</li>
-                <li>Evitar el consumo de tabaco y alcohol en exceso.</li>
-                <li>Monitorear periódicamente los niveles de glucosa en sangre.</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style='background-color:#4CAF50; padding: 20px; border-radius: 10px; color: white;'>
-            <h3>🟢 Sin Riesgo de Diabetes</h3>
-            <p>Continúa manteniendo hábitos saludables para conservar tu bienestar.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# Footer
+# Línea final
 st.markdown("---")
-st.markdown("Ingeniería Industrial  \nUNAB 2025 ®")
+st.markdown("**Ingeniería Industrial**")
+st.markdown("**Unab 2025®**")
