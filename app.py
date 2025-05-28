@@ -1,104 +1,79 @@
 import streamlit as st
-import joblib
 import numpy as np
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+import joblib
 from PIL import Image
 
-# Cargar modelos
+# Cargar modelo y scaler
+model = joblib.load("modelGB.joblib")
 scaler = joblib.load("scaler.joblib")
-label_encoder = joblib.load("labelencoder.joblib")
-model = joblib.load("modelRF.joblib")
 
-# Definir valores por defecto
-feature_means = {
-    "Temperature": 29.977300,
-    "Humidity": 70.036240,
-    "PM10": 28.215900,
-    "NO2": 26.364280,
-    "SO2": 9.911630,
-    "CO": 1.498345,
-    "Proximity_to_Industrial_Areas": 8.419160,
-    "Population_Density": 497.406700,
-}
-
-# Definir colores, emojis y recomendaciones por categoría
-category_styles = {
-    "Moderate": ("#FFD700", "😐"),
-    "Good": ("#32CD32", "😊"),
-    "Hazardous": ("#8B0000", "☠️"),
-    "Poor": ("#FF4500", "😷"),
-}
-
-category_recommendations = {
-    "Moderate": "Evite actividades físicas intensas al aire libre si es sensible. Mantenga ventanas cerradas en las horas pico.",
-    "Good": "El aire es saludable. Disfrute actividades al aire libre sin restricciones.",
-    "Hazardous": "Permanezca en interiores, cierre puertas y ventanas. Evite todo tipo de exposición al aire exterior.",
-    "Poor": "Reduzca el tiempo al aire libre, especialmente niños, adultos mayores y personas con afecciones respiratorias.",
-}
-
-category_improvement = {
-    "Moderate": "Fomentar el uso de transporte público o bicicleta. Evitar quemas al aire libre. Promover zonas verdes en la ciudad.",
-    "Poor": "Reducir emisiones vehiculares, controlar actividades industriales, implementar días sin carro y mejorar la eficiencia energética.",
-    "Hazardous": "Cerrar temporalmente fuentes industriales contaminantes, implementar planes de emergencia ambiental y controlar estrictamente el tráfico vehicular.",
-}
-
-# UI de la aplicación
-st.title("Modelo Predictivo de la Calidad del Aire")
-st.subheader("Autores: Johan Rodriguez y Stefania Reyes")
+# Título y subtítulo
+st.title("🧬 Modelo Predictivo Diabetes")
+st.subheader("Autores: Laura Sofía Velandia y María Paula Corredor")
 
 # Imagen
-image = Image.open("contaminacion.jpg")
+image = Image.open("diabetes.jpg")
 st.image(image, use_container_width=True)
 
 # Introducción
-txt = """
-Esta aplicación permite predecir la calidad del aire con base en distintos parámetros ambientales. 
+st.markdown("""
+Esta aplicación permite predecir si una persona podría tener riesgo de diabetes, utilizando un modelo entrenado con Gradient Boosting.
 
-**¿Cómo usarla?**
-- Escriba los valores de cada variable usando las cajas de texto.
-- Presione el botón de predicción para obtener el resultado.
-"""
-st.markdown(txt)
+Para usar la herramienta, introduce los valores correspondientes en cada campo numérico y presiona el botón **Predecir** para obtener el resultado.
+""")
 
-# Entrada de variables
-st.sidebar.header("Ingrese los valores de las variables")
-input_data = []
-for feature, mean_value in feature_means.items():
-    val = st.sidebar.text_input(f"{feature} (valor numérico con punto decimal)", value=str(mean_value))
-    try:
-        val_float = float(val)
-    except ValueError:
-        st.sidebar.error(f"El valor ingresado para {feature} no es válido. Debe ser un número decimal.")
-        val_float = mean_value
-    input_data.append(val_float)
+# Valores por defecto (media de la tabla)
+default_values = {
+    "Pregnancies": 3.84,
+    "Glucose": 121.14,
+    "BloodPressure": 70.68,
+    "SkinThickness": 20.51,
+    "Insulin": 73.65,
+    "BMI": 32.13,
+    "DiabetesPedigreeFunction": 0.46,
+    "Age": 33.20
+}
+
+# Entradas del usuario
+st.markdown("### Ingrese los valores del paciente:")
+pregnancies = st.number_input("Número de embarazos", value=default_values["Pregnancies"])
+glucose = st.number_input("Nivel de glucosa", value=default_values["Glucose"])
+bp = st.number_input("Presión arterial", value=default_values["BloodPressure"])
+skin = st.number_input("Espesor de la piel", value=default_values["SkinThickness"])
+insulin = st.number_input("Nivel de insulina", value=default_values["Insulin"])
+bmi = st.number_input("Índice de masa corporal (BMI)", value=default_values["BMI"])
+dpf = st.number_input("Función de herencia de diabetes", value=default_values["DiabetesPedigreeFunction"])
+age = st.number_input("Edad", value=default_values["Age"])
 
 # Botón de predicción
-if st.button("Predecir Calidad del Aire"):
-    # Transformar datos
-    input_array = np.array(input_data).reshape(1, -1)
-    input_scaled = scaler.transform(input_array)
+if st.button("Predecir"):
+    user_data = np.array([[pregnancies, glucose, bp, skin, insulin, bmi, dpf, age]])
+    user_scaled = scaler.transform(user_data)
+    prediction = model.predict(user_scaled)[0]
 
-    # Predicción
-    prediction = model.predict(input_scaled)
-    category = label_encoder.inverse_transform(prediction)[0]
+    if prediction == 1:
+        st.markdown("""
+        <div style='background-color:#ff4c4c; padding: 20px; border-radius: 10px; color: white;'>
+            <h3>🔴 Riesgo de Diabetes</h3>
+            <p>Se recomienda consultar a un profesional de salud para un diagnóstico más preciso.</p>
+            <p><strong>Recomendaciones:</strong></p>
+            <ul>
+                <li>Mantener una dieta equilibrada baja en azúcares y grasas saturadas.</li>
+                <li>Realizar actividad física regular (al menos 30 minutos al día).</li>
+                <li>Controlar el peso corporal y evitar el sobrepeso.</li>
+                <li>Evitar el consumo de tabaco y alcohol en exceso.</li>
+                <li>Monitorear periódicamente los niveles de glucosa en sangre.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style='background-color:#4CAF50; padding: 20px; border-radius: 10px; color: white;'>
+            <h3>🟢 Sin Riesgo de Diabetes</h3>
+            <p>Continúa manteniendo hábitos saludables para conservar tu bienestar.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Mostrar resultado con estilo
-    color, emoji = category_styles.get(category, ("#FFFFFF", "❓"))
-    recommendation = category_recommendations.get(category, "No hay recomendaciones disponibles.")
-    improvement = category_improvement.get(category, None)
-
-    st.markdown(f'<div style="background-color:{color}; padding:10px; border-radius:10px; text-align:center;">' \
-                f'<h2>{category} {emoji}</h2></div>', unsafe_allow_html=True)
-
-    st.markdown("### Recomendaciones:")
-    st.info(recommendation)
-
-    if improvement:
-        st.markdown("### ¿Cómo mejorar la calidad del aire?")
-        st.warning(improvement)
-
-# Línea final
+# Footer
 st.markdown("---")
-st.markdown("**Ingeniería Industrial**")
-st.markdown("**Unab 2025®**")
+st.markdown("Ingeniería Industrial  \nUNAB 2025 ®")
